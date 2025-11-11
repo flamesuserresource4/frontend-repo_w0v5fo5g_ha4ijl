@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState } from 'react'
 import { Home, Search, Play, ShoppingBag, User as UserIcon, Heart, Camera } from 'lucide-react'
 import Spline from '@splinetool/react-spline'
 
@@ -79,12 +79,11 @@ function HomeFeed() {
 
   useEffect(() => {
     const load = async () => {
-      // bootstrap backend data
-      await fetch(`${API_BASE}/api/bootstrap`).then(r=>r.json()).catch(()=>{})
+      try { await fetch(`${API_BASE}/api/bootstrap`).then(r=>r.json()) } catch {}
       const s = await fetch(`${API_BASE}/api/stories`).then(r=>r.json()).catch(()=>[])
       const f = await fetch(`${API_BASE}/api/feed`).then(r=>r.json()).catch(()=>[])
-      setStories(s || [])
-      setFeed(f || [])
+      setStories(Array.isArray(s) ? s : [])
+      setFeed(Array.isArray(f) ? f : [])
       setLoading(false)
     }
     load()
@@ -129,13 +128,64 @@ function Explore() {
   const [items, setItems] = useState([])
   useEffect(() => {
     const load = async () => {
-      await fetch(`${API_BASE}/api/bootstrap`).catch(()=>{})
+      try { await fetch(`${API_BASE}/api/bootstrap`) } catch {}
       const f = await fetch(`${API_BASE}/api/feed?limit=30`).then(r=>r.json()).catch(()=>[])
-      setItems(f)
+      setItems(Array.isArray(f) ? f : [])
     }
     load()
   }, [])
   return <ExploreGrid items={items} />
+}
+
+function Profile() {
+  const [me, setMe] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const load = async () => {
+      try { await fetch(`${API_BASE}/api/bootstrap`) } catch {}
+      const data = await fetch(`${API_BASE}/api/me`).then(r=>r.json()).catch(()=>null)
+      setMe(data)
+      setLoading(false)
+    }
+    load()
+  }, [])
+
+  if (loading) return <div className="flex items-center justify-center h-[60vh] text-gray-500">Loading profile…</div>
+  if (!me) return <div className="flex items-center justify-center h-[60vh] text-gray-500">Profile unavailable</div>
+
+  const { user, posts, stats } = me
+
+  return (
+    <div>
+      <div className="px-4 py-6">
+        <div className="flex items-center gap-6">
+          <img src={user?.avatar_url} className="w-20 h-20 rounded-full object-cover" />
+          <div className="flex-1">
+            <div className="text-lg font-semibold">{user?.username}</div>
+            <div className="flex gap-6 mt-2 text-sm">
+              <div><span className="font-semibold">{stats?.posts || 0}</span> posts</div>
+              <div><span className="font-semibold">{stats?.followers || 0}</span> followers</div>
+              <div><span className="font-semibold">{stats?.following || 0}</span> following</div>
+            </div>
+            {user?.bio && <div className="text-sm text-gray-600 mt-2">{user.bio}</div>}
+          </div>
+        </div>
+        <div className="mt-4">
+          <button className="px-4 py-2 border border-gray-300 rounded-md text-sm">Edit profile</button>
+        </div>
+      </div>
+      <div className="border-t border-gray-200" />
+      <div className="grid grid-cols-3 gap-0.5">
+        {(posts || []).map((p) => (
+          <img key={p._id} src={p.media_url} className="w-full aspect-square object-cover" />
+        ))}
+        {(!posts || posts.length === 0) && (
+          <div className="col-span-3 py-16 text-center text-gray-500">No posts yet</div>
+        )}
+      </div>
+    </div>
+  )
 }
 
 function Placeholder({ title }) {
@@ -155,7 +205,7 @@ export default function App() {
         {tab === 'search' && <Explore />}
         {tab === 'reels' && <Placeholder title="Reels" />}
         {tab === 'shop' && <Placeholder title="Shop" />}
-        {tab === 'profile' && <Placeholder title="Profile" />}
+        {tab === 'profile' && <Profile />}
       </div>
       <BottomNav tab={tab} setTab={setTab} />
     </div>
